@@ -1,0 +1,29 @@
+---
+
+- name: Create a directory to store the wellknown challenge file
+  file:
+    path: "{{ letsencrypt_webroot }}"
+    state: directory
+  when: letsencrypt_challenge_method == 'webroot'
+
+- name: Install the certbot package
+  snap:
+    name: certbot
+    classic: yes
+    channel: latest/beta
+    state: present
+
+- set_fact:
+    certbot_common_settings: "--non-interactive --agree-tos --email {{ system_email_address }} -d {{ ssl_domains | join(',') }}"
+
+- name: Request certificate with a standlone service
+  shell: certbot certonly --standalone {{ certbot_common_settings }} --pre-hook "/usr/bin/systemctl stop nginx.service" --post-hook "/usr/bin/systemctl start nginx.service"
+#  ignore_errors: yes
+  when: letsencrypt_ssl_wildcard == false and letsencrypt_challenge_method == 'standalone'
+
+- name: Request certificate with webroot and .well-known
+  shell: certbot certonly --webroot -w {{ letsencrypt_webroot }} {{ certbot_common_settings }}
+  when: letsencrypt_ssl_wildcard == false and letsencrypt_challenge_method == 'webroot'
+
+- include: cloudflare.yml
+  when: letsencrypt_ssl_wildcard == true and letsencrypt_dns_method == 'cloudflare'

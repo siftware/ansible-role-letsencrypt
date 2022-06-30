@@ -1,0 +1,23 @@
+---
+
+- name: Allow the cloudflare plugin for certbot to be installed at the root level
+  shell: snap set certbot trust-plugin-with-root=ok
+
+- name: Install the cloudflare plugin for certbot
+  snap:
+    name: certbot-dns-cloudflare
+    state: present
+
+- name: Ensure the letsencrypt directory exists for the cloudflare config
+  file:
+    path: /etc/letsencrypt
+    state: directory
+
+- name: Install the cloudflare configuration for Let's Encrypt
+  template:
+    src: cloudflareapi.cfg.j2
+    dest: /etc/letsencrypt/cloudflareapi.cfg
+    mode: '0600'
+
+- name: Request wildcard certificate
+  shell: certbot certonly --non-interactive --agree-tos --email {{ system_email_address }} --cert-name {{ ssl_domains[0] }} --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflareapi.cfg --server https://acme-v02.api.letsencrypt.org/directory -d "*.{{ ssl_domains[0] }}" -d {{ ssl_domains | join(',') }}
